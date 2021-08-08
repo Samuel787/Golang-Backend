@@ -17,6 +17,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	jwt "github.com/dgrijalva/jwt-go"
+	logrus "github.com/sirupsen/logrus"
 )
 
 var mySigningKey = []byte("mysupersecretphrase")
@@ -27,6 +28,7 @@ const collectionName = "users"
 var collection *mongo.Collection
 
 func init() {
+	enableLogging(true)
 	clientOptions := options.Client().ApplyURI(connectionString)
 	client, err := mongo.Connect(context.TODO(), clientOptions) // mongo.NewClient(clientOptions)
 	if err != nil {
@@ -41,7 +43,18 @@ func init() {
 	
 	database := client.Database(dbName)
 	collection = database.Collection(collectionName)
-	
+}
+
+func enableLogging(flag bool) {
+	if flag {
+		logrus.SetOutput(os.Stdout)
+		logrus.SetFormatter(&log.JSONFormatter{})
+		logLevel, err := logrus.ParseLevel("debug")
+		if err != nil {
+			logLevel = logrus.InfoLevel
+		}
+		logrus.SetLevel(logLevel)
+	}
 }
 
 func AuthorizeUser(next http.Handler) http.Handler {
