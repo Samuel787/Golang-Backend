@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"math"
 	"strconv"
+	"os"
 
 	"../models"
 	"github.com/gorilla/mux"
@@ -48,7 +49,7 @@ func init() {
 func enableLogging(flag bool) {
 	if flag {
 		logrus.SetOutput(os.Stdout)
-		logrus.SetFormatter(&log.JSONFormatter{})
+		logrus.SetFormatter(&logrus.JSONFormatter{})
 		logLevel, err := logrus.ParseLevel("debug")
 		if err != nil {
 			logLevel = logrus.InfoLevel
@@ -60,6 +61,10 @@ func enableLogging(flag bool) {
 func AuthorizeUser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request){
 		fmt.Println("This is the auth middleware")
+
+		logrus.WithFields(logrus.Fields{
+			"Test": "hello there brown cow",
+		}).Info("Auth details")
 
 		if r.Header["Token"] != nil {
 			token, err := jwt.Parse(r.Header["Token"][0], func(token *jwt.Token) (interface{}, error) {
