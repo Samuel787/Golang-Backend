@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"math"
+	"strconv"
 
 	"../models"
 	"github.com/gorilla/mux"
@@ -14,7 +16,10 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	jwt "github.com/dgrijalva/jwt-go"
 )
+
+var mySigningKey = []byte("mysupersecretphrase")
 
 const connectionString = "mongodb+srv://SamuelRyde:SlfZ0ehN2bDKnr3h@rydecluster.pbok3.mongodb.net/test?retryWrites=true&w=majority"
 const dbName = "rydedb"
@@ -37,6 +42,29 @@ func init() {
 	database := client.Database(dbName)
 	collection = database.Collection(collectionName)
 	
+}
+
+func AuthorizeUser(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request){
+		fmt.Println("This is the auth middleware")
+
+		if r.Header["Token"] != nil {
+			token, err := jwt.Parse(r.Header["Token"][0], func(token *jwt.Token) (interface{}, error) {
+				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+					return nil, fmt.Errorf("There is an error")
+				}
+				return mySigningKey, nil
+			})
+			if err != nil {
+				fmt.Println(w, err.Error())
+			}
+			if token.Valid {
+				next.ServeHTTP(w, r)
+			}
+		} else {
+			fmt.Println(w, "Not Authorized");
+		}
+	})
 }
 
 // Create User route
@@ -176,4 +204,187 @@ func updateOneUser(r *http.Request) {
 	} else {
 		fmt.Println("Updated record successfully")
 	}
+}
+
+/**
+Adds followers to the user
+Ensures that user is not adding himself as follower
+Ensures that user is not attempting to add non-existent user as follower
+*/
+func AddFollowerToUser(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Context-Type", "application/x-www-form-urlencoded")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	userId := r.URL.Query().Get("userId")
+	followerId := r.URL.Query().Get("followerId")
+	if userId == followerId {
+		fmt.Println("User can't add himself as follower")
+	}
+	user := findUserById(userId)
+	follower := findUserById(followerId)
+	if user == nil || follower == nil {
+		fmt.Println("One of the user doesn't exist")
+		return
+	}
+	var followerExists = false
+	if user["followers"] == nil {
+		user["followers"] = [1]string{followerId}
+	} else {
+		var existingFollowers bson.A = user["followers"].(bson.A)
+		for _, currFollower := range existingFollowers {
+			if currFollower == followerId {
+				followerExists = true
+			}
+		}
+		if !followerExists {
+			user["followers"] = append(existingFollowers, followerId)
+			fmt.Println("Follower doesn't exist, hence proceeding to add")	
+		} else {
+			fmt.Println("Not adding because the follower already exists")
+		}
+	}
+	fmt.Println("These is the array: ", user["followers"])
+	if !followerExists {
+		userIdRaw, _ := primitive.ObjectIDFromHex(userId)
+		filter := bson.M{"_id": bson.M{"$eq": userIdRaw}}
+		update := bson.M{"$set": user}
+		_, err := collection.UpdateOne(context.Background(), filter, update)
+		if err != nil {
+			fmt.Println("Error occurred while attempting to add follower")
+			fmt.Println("This is the err: ", err)
+		} else {
+			fmt.Println("Added follower")
+		}	
+	}
+}
+
+/**
+Adds following to the user
+Ensures that user is not adding himself as following
+Ensures that user is not attempting to add non-existent user as following
+@TODO: Test this method
+*/
+func AddFollowingToUser(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Context-Type", "application/x-www-form-urlencoded")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	userId := r.URL.Query().Get("userId")
+	followingId := r.URL.Query().Get("followingId")
+	if userId == followingId {
+		fmt.Println("User can't add himself as following")
+	}
+	user := findUserById(userId)
+	following := findUserById(followingId)
+	if user == nil {
+		fmt.Println("The user doesn't exist: ", userId)
+	}
+	if following == nil {
+		fmt.Println("The following doesn't exist: ", followingId)
+	}
+	// if (user == nil || following == nil) {
+	// 	fmt.Println("One of the user doesn't exist")
+	// 	return
+	// }
+	var followingExists = false
+	if user["following"] == nil {
+		user["following"] = [1]string{followingId}
+	} else {
+		var existingFollowing bson.A = user["following"].(bson.A)
+		for _, currFollowing := range existingFollowing {
+			if currFollowing == followingId {
+				followingExists = true
+			}
+		}
+		if !followingExists {
+			user["following"] = append(existingFollowing, followingId)
+			fmt.Println("Following doesn't exist, hence proceeding to add")
+		} else {
+			fmt.Println("Not adding because the following already exists")
+		}
+	}
+	fmt.Println("This is the following array: ", user["following"])
+	if !followingExists {
+		userIdRaw, _ := primitive.ObjectIDFromHex(userId)
+		filter := bson.M{"_id": bson.M{"$eq": userIdRaw}}
+		update := bson.M{"$set": user}
+		_, err := collection.UpdateOne(context.Background(), filter, update)
+		if err != nil {
+			fmt.Println("Error occurred while attempting to add follower")
+			fmt.Println("This is the err: ", err)
+		} else {
+			fmt.Println("Added following")
+		}
+	}
+}
+
+/**
+@TODO: Test this method
+User will be able to get the list of users who they are *following* who are nearby.
+This will not include users who are following that user (unless this user is following them as well)
+because of a directed relationship. user knows about users he is following but not about
+users who are following him but did not let this user follow them back.
+^ Explain and document the above more clearly
+*/
+func GetNearByFollowing(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Context-Type", "application/x-www-form-urlencoded")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	userId := r.URL.Query().Get("userId")
+	distString := r.URL.Query().Get("dist") // this is in metres
+	dist, err := strconv.ParseFloat(distString, 64)
+	if err != nil {
+		fmt.Println("distance parameter for API is not a float value")
+		return
+	}
+	limitString := r.URL.Query().Get("limit")
+	limit, err := strconv.Atoi(limitString)
+	fmt.Println("this is limit: ", limit)
+	if err != nil {
+		fmt.Println("limit parameter for API is not a int value")
+		return
+	}
+	user := findUserById(userId)
+	if user == nil {
+		fmt.Println("User doesn't exist")
+	}
+	if user["latitude"] == nil || user["longitude"] == nil {
+		fmt.Println("User's location information (lat and long) is not available")
+		return
+	}
+	userLat := user["latitude"].(float64)
+	userLong := user["longitude"].(float64)
+	var results []primitive.M
+	var followingList bson.A
+	if user["following"] != nil {
+		followingList = user["following"].(bson.A)
+		for _, currFollowing := range followingList {
+			currUser := findUserById(currFollowing.(string))
+			if currUser == nil {
+				fmt.Println("[Error] could not retrieve this user: ", currFollowing)
+			} else {
+				if currUser["latitude"] == nil || currUser["longitude"] == nil {
+					continue
+				}
+				var lat = currUser["latitude"].(float64)
+				var long = currUser["longitude"].(float64)
+				curr_dist := getDist(userLat, userLong, lat, long)
+				if curr_dist < dist {
+					results = append(results, currUser)
+				}
+			}
+		}
+	} else {
+		fmt.Println("This user is not following anyone")
+	}
+	json.NewEncoder(w).Encode(results)
+	fmt.Println("This is the list of nearby friends: ", results)
+}
+
+/**
+helper method to get dist in metres between two location points
+https://www.nhc.noaa.gov/gccalc.shtml
+*/
+func getDist(lat1 float64, long1 float64, lat2 float64, long2 float64) float64 {
+	var distX = (lat1 - lat2) * 111000
+	var distY = (long1 - long2) * 111000
+	var hyptotenuse = math.Sqrt((distX * distX + distY * distY))
+	var distMetres = hyptotenuse * 111000;
+	return distMetres;
 }
