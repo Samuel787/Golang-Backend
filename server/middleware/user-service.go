@@ -6,11 +6,15 @@ import (
 
 	"../models"
 	"../repository"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	// logrus "github.com/sirupsen/logrus"
 )
 
 type UserService interface {
 	CreateUser(user *models.User) error
+	GetAllUsers() ([]primitive.M, error)
+	GetUserById(user string) (bson.M, error)
 }
 
 type service struct{}
@@ -63,4 +67,22 @@ func (*service) CreateUser(user *models.User) error {
 	}
 	_, err := repo.AddUser(user)
 	return err
+}
+
+func (*service) GetAllUsers() ([]primitive.M, error) {
+	users, err := repo.GetAllUsers()
+	if err != nil {
+		return nil, err
+	} else {
+		return users, nil
+	}
+}
+
+func (*service) GetUserById(user string) (bson.M, error) {
+	userResult, err := repo.GetUser(user)
+	if err != nil {
+		return nil, err
+	} else {
+		return userResult, nil
+	}
 }

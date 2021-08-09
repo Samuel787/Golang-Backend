@@ -32,7 +32,7 @@ func main() {
 	fmt.Println("Welcome to the client!")
 
 	tokenString, err := GenerateJWT()
-	
+
 	if err != nil {
 		fmt.Println("Error generating token string")
 	}

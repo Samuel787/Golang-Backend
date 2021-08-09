@@ -118,20 +118,34 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func insertOneUser(user models.User) {
-	insertResult, err := collection.InsertOne(context.Background(), user)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("Inserted a Single Record ", insertResult.InsertedID)
-}
+// func insertOneUser(user models.User) {
+// 	insertResult, err := collection.InsertOne(context.Background(), user)
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+// 	fmt.Println("Inserted a Single Record ", insertResult.InsertedID)
+// }
 
 // Get All Users route
 func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Context-Type", "application/x-www-form-urlencoded")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	payload := getAllUsers()
-	json.NewEncoder(w).Encode(payload)
+	payload, err := ApiService.GetAllUsers()
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"users-object": payload,
+			"error":        err.Error(),
+			"time":         time.Now().String(),
+		}).Warn("GetAllUsers")
+		json.NewEncoder(w).Encode("Error: " + err.Error())
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"users": payload,
+			"msg":   "Successfully queried for all users in database",
+			"time":  time.Now().String(),
+		}).Info("GetAllUsers")
+		json.NewEncoder(w).Encode(payload)
+	}
 }
 
 // Get User by their ID
@@ -139,8 +153,23 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Context-Type", "application/x-www-form-urlencoded")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	params := mux.Vars(r)
-	payload := findUserById(params["id"])
-	json.NewEncoder(w).Encode(payload)
+	// payload := findUserById(params["id"])
+	user, err := ApiService.GetUserById(params["id"])
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"user":  user,
+			"error": err.Error(),
+			"time":  time.Now().String(),
+		}).Warn("GetUser")
+		json.NewEncoder(w).Encode("Error: " + err.Error())
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"users": user,
+			"msg":   "Successfully queried for user in database",
+			"time":  time.Now().String(),
+		}).Info("GetUser")
+		json.NewEncoder(w).Encode(user)
+	}
 }
 
 func findUserById(user string) bson.M {
@@ -151,26 +180,26 @@ func findUserById(user string) bson.M {
 }
 
 // get all users from the DB and return it
-func getAllUsers() []primitive.M {
-	cur, err := collection.Find(context.Background(), bson.D{{}})
-	if err != nil {
-		log.Fatal(err)
-	}
-	var results []primitive.M
-	for cur.Next(context.Background()) {
-		var result bson.M
-		e := cur.Decode(&result)
-		if e != nil {
-			log.Fatal(e)
-		}
-		results = append(results, result)
-	}
-	if err := cur.Err(); err != nil {
-		log.Fatal(err)
-	}
-	cur.Close(context.Background())
-	return results
-}
+// func getAllUsers() []primitive.M {
+// 	cur, err := collection.Find(context.Background(), bson.D{{}})
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+// 	var results []primitive.M
+// 	for cur.Next(context.Background()) {
+// 		var result bson.M
+// 		e := cur.Decode(&result)
+// 		if e != nil {
+// 			log.Fatal(e)
+// 		}
+// 		results = append(results, result)
+// 	}
+// 	if err := cur.Err(); err != nil {
+// 		log.Fatal(err)
+// 	}
+// 	cur.Close(context.Background())
+// 	return results
+// }
 
 func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Context-Type", "application/x-www-form-urlencoded")
