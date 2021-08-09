@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math"
 	"net/http"
 	"os"
@@ -210,80 +209,93 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	err := ApiService.DeleteUserById(params["id"])
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
-			"error": err.Error(),
-			"time":  time.Now().String(),
+			"user-id": params["id"],
+			"error":   err.Error(),
+			"time":    time.Now().String(),
 		}).Warn("DeleteUser")
 		json.NewEncoder(w).Encode("Error: " + err.Error())
 	} else {
 		logrus.WithFields(logrus.Fields{
-			"msg":   "Successfully deleted user from database",
-			"time":  time.Now().String(),
+			"user-id": params["id"],
+			"msg":     "Successfully deleted user from database",
+			"time":    time.Now().String(),
 		}).Info("DeleteUser")
 		json.NewEncoder(w).Encode("Success")
 	}
 }
 
-func deleteOneUser(user string) {
-	fmt.Println(user)
-	id, _ := primitive.ObjectIDFromHex(user)
-	filter := bson.M{"_id": id}
-	d, err := collection.DeleteOne(context.Background(), filter)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("Deleted Document", d.DeletedCount)
-}
+// func deleteOneUser(user string) {
+// 	fmt.Println(user)
+// 	id, _ := primitive.ObjectIDFromHex(user)
+// 	filter := bson.M{"_id": id}
+// 	d, err := collection.DeleteOne(context.Background(), filter)
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+// 	fmt.Println("Deleted Document", d.DeletedCount)
+// }
 
 func UpdateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/x-www-form-urlencoded")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "PUT")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	// params := mux.Vars(r)
 	hex_id := r.URL.Query().Get("id")
-	if hex_id != "" {
-		updateOneUser(r)
-	}
-
-}
-
-func updateOneUser(r *http.Request) {
-	hex_id := r.URL.Query().Get("id")
-	id, _ := primitive.ObjectIDFromHex(hex_id)
-	filter := bson.M{"_id": bson.M{"$eq": id}}
-	name := r.URL.Query().Get("name")
-	dob := r.URL.Query().Get("dob")
-	address := r.URL.Query().Get("address")
-	description := r.URL.Query().Get("description")
-	latitude := r.URL.Query().Get("latitude")
-	longitude := r.URL.Query().Get("longitude")
-	change := bson.M{}
-	if name != "" {
-		change["name"] = name
-	}
-	if dob != "" {
-		change["dob"] = dob
-	}
-	if address != "" {
-		change["address"] = address
-	}
-	if description != "" {
-		change["description"] = description
-	}
-	if latitude != "" {
-		change["latitude"] = latitude
-	}
-	if longitude != "" {
-		change["longitude"] = longitude
-	}
-	update := bson.M{"$set": change}
-	_, err := collection.UpdateOne(context.Background(), filter, update)
+	err := ApiService.UpdateUserById(hex_id, r)
 	if err != nil {
-		fmt.Println("UpdateOneUser() result ERROR: ", err)
+		logrus.WithFields(logrus.Fields{
+			"user-id": hex_id,
+			"error":   err.Error(),
+			"time":    time.Now().String(),
+		}).Warn("UpdateUser")
+		json.NewEncoder(w).Encode("Error: " + err.Error())
 	} else {
-		fmt.Println("Updated record successfully")
+		logrus.WithFields(logrus.Fields{
+			"user-id": hex_id,
+			"msg":     "Successfully updated user in database",
+			"time":    time.Now().String(),
+		}).Info("UpdateUser")
+		json.NewEncoder(w).Encode("Success")
 	}
 }
+
+// func updateOneUser(r *http.Request) {
+// 	hex_id := r.URL.Query().Get("id")
+// 	id, _ := primitive.ObjectIDFromHex(hex_id)
+// 	filter := bson.M{"_id": bson.M{"$eq": id}}
+// 	name := r.URL.Query().Get("name")
+// 	dob := r.URL.Query().Get("dob")
+// 	address := r.URL.Query().Get("address")
+// 	description := r.URL.Query().Get("description")
+// 	latitude := r.URL.Query().Get("latitude")
+// 	longitude := r.URL.Query().Get("longitude")
+// 	change := bson.M{}
+// 	if name != "" {
+// 		change["name"] = name
+// 	}
+// 	if dob != "" {
+// 		change["dob"] = dob
+// 	}
+// 	if address != "" {
+// 		change["address"] = address
+// 	}
+// 	if description != "" {
+// 		change["description"] = description
+// 	}
+// 	if latitude != "" {
+// 		change["latitude"] = latitude
+// 	}
+// 	if longitude != "" {
+// 		change["longitude"] = longitude
+// 	}
+// 	update := bson.M{"$set": change}
+// 	_, err := collection.UpdateOne(context.Background(), filter, update)
+// 	if err != nil {
+// 		fmt.Println("UpdateOneUser() result ERROR: ", err)
+// 	} else {
+// 		fmt.Println("Updated record successfully")
+// 	}
+// }
 
 /**
 Adds followers to the user

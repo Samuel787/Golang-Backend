@@ -175,4 +175,9 @@ func TestGetUserFailure(t *testing.T) {
 	assert.Equal(t, "[Get User] User does not exist in the database", err.Error())
 }
 
+// Test deleting an existing user
+
+// Test deleting a user who doesn't exsit -> should throw an error
+
+
 

@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"errors"
+	"net/http"
 	"time"
 
 	"../models"
@@ -15,7 +16,8 @@ type UserService interface {
 	CreateUser(user *models.User) error
 	GetAllUsers() ([]primitive.M, error)
 	GetUserById(user string) (bson.M, error)
-	DeleteUserById(user string) (error)
+	DeleteUserById(user string) error
+	UpdateUserById(userId string, r *http.Request) error
 }
 
 type service struct{}
@@ -88,7 +90,38 @@ func (*service) GetUserById(user string) (bson.M, error) {
 	}
 }
 
-func (*service) DeleteUserById(user string) (error) {
+func (*service) DeleteUserById(user string) error {
 	err := repo.DeleteUser(user)
+	return err
+}
+
+func (*service) UpdateUserById(userId string, r *http.Request) error {
+	name := r.URL.Query().Get("name")
+	dob := r.URL.Query().Get("dob")
+	address := r.URL.Query().Get("address")
+	description := r.URL.Query().Get("description")
+	latitude := r.URL.Query().Get("latitude")
+	longitude := r.URL.Query().Get("longitude")
+	change := bson.M{}
+	if name != "" {
+		change["name"] = name
+	}
+	if dob != "" {
+		change["dob"] = dob
+	}
+	if address != "" {
+		change["address"] = address
+	}
+	if description != "" {
+		change["description"] = description
+	}
+	if latitude != "" {
+		change["latitude"] = latitude
+	}
+	if longitude != "" {
+		change["longitude"] = longitude
+	}
+	update := bson.M{"$set": change}
+	err := repo.UpdateUser(userId, update)
 	return err
 }

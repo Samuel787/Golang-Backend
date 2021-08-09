@@ -149,3 +149,23 @@ func (*repo) DeleteUser(userId string) error {
 		return resultErr
 	}
 }
+
+func (*repo) UpdateUser(userId string, update bson.M) error {
+	client, ctx, err, collection := ConnectToDatabase()
+	defer client.Disconnect(ctx)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+	id, _ := primitive.ObjectIDFromHex(userId)
+	var resultUser bson.M
+	filter := bson.M{"_id": id}
+	collection.FindOne(context.Background(), filter).Decode(&resultUser)
+	if resultUser == nil {
+		return errors.New("[UpdateUser] user to update does not exist in database")
+	} else {
+		userFilter := bson.M{"_id": bson.M{"$eq": id}}
+		_, err := collection.UpdateOne(context.Background(), userFilter, update)
+		return err
+	}
+}
