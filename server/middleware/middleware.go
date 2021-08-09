@@ -377,51 +377,69 @@ func AddFollowingToUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	userId := r.URL.Query().Get("userId")
 	followingId := r.URL.Query().Get("followingId")
-	if userId == followingId {
-		fmt.Println("User can't add himself as following")
+	err := ApiService.AddFollowingToUser(userId, followingId)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"userId":      userId,
+			"followingId": followingId,
+			"error":       err.Error(),
+			"time":        time.Now().String(),
+		}).Warn("AddFollowingToUser")
+		json.NewEncoder(w).Encode("Error: " + err.Error())
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"userId":      userId,
+			"followingId": followingId,
+			"msg":         "Successfully added following to user",
+			"time":        time.Now().String(),
+		}).Info("AddFollowingToUser")
+		json.NewEncoder(w).Encode("Success")
 	}
-	user := findUserById(userId)
-	following := findUserById(followingId)
-	if user == nil {
-		fmt.Println("The user doesn't exist: ", userId)
-	}
-	if following == nil {
-		fmt.Println("The following doesn't exist: ", followingId)
-	}
+	// if userId == followingId {
+	// 	fmt.Println("User can't add himself as following")
+	// }
+	// user := findUserById(userId)
+	// following := findUserById(followingId)
+	// if user == nil {
+	// 	fmt.Println("The user doesn't exist: ", userId)
+	// }
+	// if following == nil {
+	// 	fmt.Println("The following doesn't exist: ", followingId)
+	// }
 	// if (user == nil || following == nil) {
 	// 	fmt.Println("One of the user doesn't exist")
 	// 	return
 	// }
-	var followingExists = false
-	if user["following"] == nil {
-		user["following"] = [1]string{followingId}
-	} else {
-		var existingFollowing bson.A = user["following"].(bson.A)
-		for _, currFollowing := range existingFollowing {
-			if currFollowing == followingId {
-				followingExists = true
-			}
-		}
-		if !followingExists {
-			user["following"] = append(existingFollowing, followingId)
-			fmt.Println("Following doesn't exist, hence proceeding to add")
-		} else {
-			fmt.Println("Not adding because the following already exists")
-		}
-	}
-	fmt.Println("This is the following array: ", user["following"])
-	if !followingExists {
-		userIdRaw, _ := primitive.ObjectIDFromHex(userId)
-		filter := bson.M{"_id": bson.M{"$eq": userIdRaw}}
-		update := bson.M{"$set": user}
-		_, err := collection.UpdateOne(context.Background(), filter, update)
-		if err != nil {
-			fmt.Println("Error occurred while attempting to add follower")
-			fmt.Println("This is the err: ", err)
-		} else {
-			fmt.Println("Added following")
-		}
-	}
+	// var followingExists = false
+	// if user["following"] == nil {
+	// 	user["following"] = [1]string{followingId}
+	// } else {
+	// 	var existingFollowing bson.A = user["following"].(bson.A)
+	// 	for _, currFollowing := range existingFollowing {
+	// 		if currFollowing == followingId {
+	// 			followingExists = true
+	// 		}
+	// 	}
+	// 	if !followingExists {
+	// 		user["following"] = append(existingFollowing, followingId)
+	// 		fmt.Println("Following doesn't exist, hence proceeding to add")
+	// 	} else {
+	// 		fmt.Println("Not adding because the following already exists")
+	// 	}
+	// }
+	// fmt.Println("This is the following array: ", user["following"])
+	// if !followingExists {
+	// 	userIdRaw, _ := primitive.ObjectIDFromHex(userId)
+	// 	filter := bson.M{"_id": bson.M{"$eq": userIdRaw}}
+	// 	update := bson.M{"$set": user}
+	// 	_, err := collection.UpdateOne(context.Background(), filter, update)
+	// 	if err != nil {
+	// 		fmt.Println("Error occurred while attempting to add follower")
+	// 		fmt.Println("This is the err: ", err)
+	// 	} else {
+	// 		fmt.Println("Added following")
+	// 	}
+	// }
 }
 
 /**

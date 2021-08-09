@@ -4,6 +4,8 @@ import (
 	"errors"
 	"net/http"
 	"time"
+	"math"
+	"strconv"
 
 	"../models"
 	"../repository"
@@ -20,6 +22,7 @@ type UserService interface {
 	UpdateUserById(userId string, r *http.Request) error
 	AddFollowerToUser(userId string, followerId string) error
 	AddFollowingToUser(userId string, followingId string) error
+	GetNearByUsers(userId string, dist string, limit string) ([]primitive.M, error)
 }
 
 type service struct{}
@@ -134,11 +137,11 @@ func (*service) AddFollowerToUser(userId string, followerId string) error {
 	}
 	user, err := repo.GetUser(userId)
 	if err != nil {
-		return err
+		return errors.New("[AddFollowerToUser] the userId does not exist in the database")
 	}
 	_, err2 := repo.GetUser(followerId)
 	if err2 != nil {
-		return err2
+		return errors.New("[AddFollowerToUser] the followingId does not exist in the database")
 	}
 	if user["followers"] == nil {
 		user["followers"] = [1]string{followerId}
@@ -162,11 +165,11 @@ func (*service) AddFollowingToUser(userId string, followingId string) error {
 	}
 	user, err := repo.GetUser(userId)
 	if err != nil {
-		return err
+		return errors.New("[AddFollowingToUser] the userId does not exist in the database")
 	}
 	_, err2 := repo.GetUser(followingId)
 	if err2 != nil {
-		return err2
+		return errors.New("[AddFollowingToUser] the followingId does not exist in the database")
 	}
 	if user["following"] == nil {
 		user["following"] = [1]string{followingId}
@@ -182,4 +185,24 @@ func (*service) AddFollowingToUser(userId string, followingId string) error {
 	update := bson.M{"$set": user}
 	errUpdate := repo.UpdateUser(userId, update)
 	return errUpdate
+}
+
+func (*service) GetNearByUsers(userId string, dist string, limit string) ([]primitive.M, error) {
+	// check if user exists
+	user, errIser := repo.GetUser(userId)
+	if errUser != nil {
+		return errors.New("[GetNearByUsers] the user with userId does not exist")
+	}
+	// convert distance to float64
+	distance, errDistParsing := strconv.ParseFloat(dist, 64)
+	if errDistParsing != nil {
+		return nil, errors.New("[GetNearByUsers] dist value cannot be parsed to float")
+	}
+	// convert limit to integer
+	limitVal, errLimitParsing := strconv.Atoi(limit)
+	if errLimitParsing != nil {
+		return nil, errors.New("[GetNearByUsers] limit value cannot be parsed to integer")
+	}
+	// run the algorithm
+	
 }
