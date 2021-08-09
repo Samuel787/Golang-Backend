@@ -29,6 +29,11 @@ func (mock *MockRepository) GetAllUsers() ([]primitive.M, error) {
 	return result.([]primitive.M), args.Error(1)
 }
 
+func (mock *MockRepository) DeleteUser(userId string) (error) {
+	args := mock.Called()
+	return args.Error(1)
+}
+
 func (mock *MockRepository) GetUser(user string) (bson.M, error) {
 	args := mock.Called()
 	result := args.Get(0)

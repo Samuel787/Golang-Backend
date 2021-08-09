@@ -28,6 +28,25 @@ const (
 	collectionName   = "users"
 )
 
+func ConnectToDatabase() (mongo.Client, context.Context, error, mongo.Collection) {
+	client, err := mongo.NewClient(options.Client().ApplyURI(connectionString))
+	if err != nil {
+		log.Fatal(err)
+	}
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	err = client.Connect(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = client.Ping(ctx, readpref.Primary())
+	if err != nil {
+		log.Fatal(err)
+	}
+	database := client.Database(dbName)
+	collection := database.Collection(collectionName)
+	return *client, ctx, err, *collection
+}
+
 func (*repo) AddUser(user *models.User) (*models.User, error) {
 	client, err := mongo.NewClient(options.Client().ApplyURI(connectionString))
 	if err != nil {
@@ -112,21 +131,21 @@ func (*repo) GetUser(userId string) (bson.M, error) {
 	}
 }
 
-func ConnectToDatabase() (mongo.Client, context.Context, error, mongo.Collection) {
-	client, err := mongo.NewClient(options.Client().ApplyURI(connectionString))
+func (*repo) DeleteUser(userId string) error {
+	client, ctx, err, collection := ConnectToDatabase()
+	defer client.Disconnect(ctx)
 	if err != nil {
 		log.Fatal(err)
+		return err
 	}
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	err = client.Connect(ctx)
-	if err != nil {
-		log.Fatal(err)
+	id, _ := primitive.ObjectIDFromHex(userId)
+	var resultUser bson.M
+	filter := bson.M{"_id": id}
+	collection.FindOne(context.Background(), filter).Decode(&resultUser)
+	if resultUser == nil {
+		return errors.New("[DeleteUser] user to delete does not exist in database")
+	} else {
+		_, resultErr := collection.DeleteOne(context.Background(), filter)
+		return resultErr
 	}
-	err = client.Ping(ctx, readpref.Primary())
-	if err != nil {
-		log.Fatal(err)
-	}
-	database := client.Database(dbName)
-	collection := database.Collection(collectionName)
-	return *client, ctx, err, *collection
 }

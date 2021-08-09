@@ -207,8 +207,20 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Methods", "DELETE")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	params := mux.Vars(r)
-	deleteOneUser(params["id"])
-	json.NewEncoder(w).Encode(params["id"])
+	err := ApiService.DeleteUserById(params["id"])
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"error": err.Error(),
+			"time":  time.Now().String(),
+		}).Warn("DeleteUser")
+		json.NewEncoder(w).Encode("Error: " + err.Error())
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"msg":   "Successfully deleted user from database",
+			"time":  time.Now().String(),
+		}).Info("DeleteUser")
+		json.NewEncoder(w).Encode("Success")
+	}
 }
 
 func deleteOneUser(user string) {

@@ -15,6 +15,7 @@ type UserService interface {
 	CreateUser(user *models.User) error
 	GetAllUsers() ([]primitive.M, error)
 	GetUserById(user string) (bson.M, error)
+	DeleteUserById(user string) (error)
 }
 
 type service struct{}
@@ -85,4 +86,9 @@ func (*service) GetUserById(user string) (bson.M, error) {
 	} else {
 		return userResult, nil
 	}
+}
+
+func (*service) DeleteUserById(user string) (error) {
+	err := repo.DeleteUser(user)
+	return err
 }
