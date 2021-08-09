@@ -4,10 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
 	"../models"
@@ -454,64 +452,73 @@ func GetNearByFollowing(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Context-Type", "application/x-www-form-urlencoded")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	userId := r.URL.Query().Get("userId")
-	distString := r.URL.Query().Get("dist") // this is in metres
-	dist, err := strconv.ParseFloat(distString, 64)
+	dist := r.URL.Query().Get("dist")
+	limit := r.URL.Query().Get("limit")
+	results, err := ApiService.GetNearByUsers(userId, dist, limit)
 	if err != nil {
-		fmt.Println("distance parameter for API is not a float value")
-		return
-	}
-	limitString := r.URL.Query().Get("limit")
-	limit, err := strconv.Atoi(limitString)
-	fmt.Println("this is limit: ", limit)
-	if err != nil {
-		fmt.Println("limit parameter for API is not a int value")
-		return
-	}
-	user := findUserById(userId)
-	if user == nil {
-		fmt.Println("User doesn't exist")
-	}
-	if user["latitude"] == nil || user["longitude"] == nil {
-		fmt.Println("User's location information (lat and long) is not available")
-		return
-	}
-	userLat := user["latitude"].(float64)
-	userLong := user["longitude"].(float64)
-	var results []primitive.M
-	var followingList bson.A
-	if user["following"] != nil {
-		followingList = user["following"].(bson.A)
-		for _, currFollowing := range followingList {
-			currUser := findUserById(currFollowing.(string))
-			if currUser == nil {
-				fmt.Println("[Error] could not retrieve this user: ", currFollowing)
-			} else {
-				if currUser["latitude"] == nil || currUser["longitude"] == nil {
-					continue
-				}
-				var lat = currUser["latitude"].(float64)
-				var long = currUser["longitude"].(float64)
-				curr_dist := getDist(userLat, userLong, lat, long)
-				if curr_dist < dist {
-					results = append(results, currUser)
-				}
-			}
-		}
+		logrus.WithFields(logrus.Fields{
+			"userId": userId,
+			"error":  err.Error(),
+			"time":   time.Now().String(),
+		}).Warn("GetNearByFollowing")
+		json.NewEncoder(w).Encode("Error: " + err.Error())
 	} else {
-		fmt.Println("This user is not following anyone")
+		logrus.WithFields(logrus.Fields{
+			"results": results,
+			"msg":     "Successfully retrieved nearby users",
+			"time":    time.Now().String(),
+		}).Info("GetNearByFollowing")
+		json.NewEncoder(w).Encode(results)
 	}
-	json.NewEncoder(w).Encode(results)
-	fmt.Println("This is the list of nearby friends: ", results)
-}
 
-/**
-helper method to get dist in metres between two location points
-https://www.nhc.noaa.gov/gccalc.shtml
-*/
-func getDist(lat1 float64, long1 float64, lat2 float64, long2 float64) float64 {
-	var distX = (lat1 - lat2) * 111000
-	var distY = (long1 - long2) * 111000
-	var hyptotenuse = math.Sqrt((distX*distX + distY*distY))
-	var distMetres = hyptotenuse * 111000
-	return distMetres
+	// userId := r.URL.Query().Get("userId")
+	// distString := r.URL.Query().Get("dist") // this is in metres
+	// dist, err := strconv.ParseFloat(distString, 64)
+
+	// if err != nil {
+	// 	fmt.Println("distance parameter for API is not a float value")
+	// 	return
+	// }
+	// limitString := r.URL.Query().Get("limit")
+	// limit, err := strconv.Atoi(limitString)
+	// fmt.Println("this is limit: ", limit)
+	// if err != nil {
+	// 	fmt.Println("limit parameter for API is not a int value")
+	// 	return
+	// }
+	// user := findUserById(userId)
+	// if user == nil {
+	// 	fmt.Println("User doesn't exist")
+	// }
+	// if user["latitude"] == nil || user["longitude"] == nil {
+	// 	fmt.Println("User's location information (lat and long) is not available")
+	// 	return
+	// }
+	// userLat := user["latitude"].(float64)
+	// userLong := user["longitude"].(float64)
+	// var results []primitive.M
+	// var followingList bson.A
+	// if user["following"] != nil {
+	// 	followingList = user["following"].(bson.A)
+	// 	for _, currFollowing := range followingList {
+	// 		currUser := findUserById(currFollowing.(string))
+	// 		if currUser == nil {
+	// 			fmt.Println("[Error] could not retrieve this user: ", currFollowing)
+	// 		} else {
+	// 			if currUser["latitude"] == nil || currUser["longitude"] == nil {
+	// 				continue
+	// 			}
+	// 			var lat = currUser["latitude"].(float64)
+	// 			var long = currUser["longitude"].(float64)
+	// 			curr_dist := getDist(userLat, userLong, lat, long)
+	// 			if curr_dist < dist {
+	// 				results = append(results, currUser)
+	// 			}
+	// 		}
+	// 	}
+	// } else {
+	// 	fmt.Println("This user is not following anyone")
+	// }
+	// json.NewEncoder(w).Encode(results)
+	// fmt.Println("This is the list of nearby friends: ", results)
 }

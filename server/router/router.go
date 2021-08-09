@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"net/http"
+
 	"../middleware"
 	"github.com/gorilla/mux"
 )
@@ -11,7 +12,7 @@ import (
 // Router is exported and used in main.go
 func Router() *mux.Router {
 	router := mux.NewRouter()
-	
+
 	// router.Use(middleware.AuthorizeUser)
 
 	router.HandleFunc("/api/user", middleware.GetAllUsers).Methods("GET", "OPTIONS")
@@ -27,11 +28,11 @@ func Router() *mux.Router {
 }
 
 func loggingMiddleware(next http.Handler) http.Handler {
-    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        // Do stuff here
-        // log.Println(r.RequestURI)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Do stuff here
+		// log.Println(r.RequestURI)
 		fmt.Println("This is the auth middleware")
-        // Call the next handler, which can be another middleware in the chain, or the final handler.
-        next.ServeHTTP(w, r)
-    })
+		// Call the next handler, which can be another middleware in the chain, or the final handler.
+		next.ServeHTTP(w, r)
+	})
 }

@@ -2,10 +2,10 @@ package middleware
 
 import (
 	"errors"
-	"net/http"
-	"time"
 	"math"
+	"net/http"
 	"strconv"
+	"time"
 
 	"../models"
 	"../repository"
@@ -189,9 +189,9 @@ func (*service) AddFollowingToUser(userId string, followingId string) error {
 
 func (*service) GetNearByUsers(userId string, dist string, limit string) ([]primitive.M, error) {
 	// check if user exists
-	user, errIser := repo.GetUser(userId)
+	user, errUser := repo.GetUser(userId)
 	if errUser != nil {
-		return errors.New("[GetNearByUsers] the user with userId does not exist")
+		return nil, errors.New("[GetNearByUsers] the user with userId does not exist")
 	}
 	// convert distance to float64
 	distance, errDistParsing := strconv.ParseFloat(dist, 64)
@@ -204,5 +204,46 @@ func (*service) GetNearByUsers(userId string, dist string, limit string) ([]prim
 		return nil, errors.New("[GetNearByUsers] limit value cannot be parsed to integer")
 	}
 	// run the algorithm
-	
+	if user["latitude"] == nil || user["longitude"] == nil {
+		return nil, errors.New("[GetNearByUsers] user does not have both latitude and longitude values")
+	}
+
+	userLat := user["latitude"].(float64)
+	userLong := user["longitude"].(float64)
+	var results []primitive.M
+	var followingList bson.A
+	var count = 0
+	if user["following"] == nil {
+		return results, nil
+	} else {
+		followingList = user["following"].(bson.A)
+		for _, currFollowing := range followingList {
+			if count >= limitVal {
+				break
+			}
+			currUser, _ := repo.GetUser(currFollowing.(string))
+			if currUser != nil && currUser["latitude"] != nil && currUser["longitude"] != nil {
+				var lat = currUser["latitude"].(float64)
+				var long = currUser["longitude"].(float64)
+				curr_dist := getDist(userLat, userLong, lat, long)
+				if curr_dist <= distance {
+					results = append(results, currUser)
+					count++
+				}
+			}
+		}
+	}
+	return results, nil
+}
+
+/**
+helper method to get dist in metres between two location points
+https://www.nhc.noaa.gov/gccalc.shtml
+*/
+func getDist(lat1 float64, long1 float64, lat2 float64, long2 float64) float64 {
+	var distX = (lat1 - lat2) * 111000
+	var distY = (long1 - long2) * 111000
+	var hyptotenuse = math.Sqrt((distX*distX + distY*distY))
+	var distMetres = hyptotenuse * 111000
+	return distMetres
 }
