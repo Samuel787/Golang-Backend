@@ -12,7 +12,7 @@ import (
 func Router() *mux.Router {
 	router := mux.NewRouter()
 	
-	router.Use(middleware.AuthorizeUser)
+	// router.Use(middleware.AuthorizeUser)
 
 	router.HandleFunc("/api/user", middleware.GetAllUsers).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/getUser/{id}", middleware.GetUser).Methods("GET", "OPTIONS")

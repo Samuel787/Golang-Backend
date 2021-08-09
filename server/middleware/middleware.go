@@ -5,18 +5,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"math"
-	"strconv"
+	"net/http"
 	"os"
+	"strconv"
+	"time"
 
 	"../models"
+	"../repository"
 	"github.com/gorilla/mux"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+
+	// "go.mongodb.org/mongo-driver/mongo/options"
 	jwt "github.com/dgrijalva/jwt-go"
 	logrus "github.com/sirupsen/logrus"
 )
@@ -26,24 +29,27 @@ var mySigningKey = []byte("mysupersecretphrase")
 const connectionString = "mongodb+srv://SamuelRyde:SlfZ0ehN2bDKnr3h@rydecluster.pbok3.mongodb.net/test?retryWrites=true&w=majority"
 const dbName = "rydedb"
 const collectionName = "users"
+
 var collection *mongo.Collection
+var ApiService UserService
 
 func init() {
 	enableLogging(true)
-	clientOptions := options.Client().ApplyURI(connectionString)
-	client, err := mongo.Connect(context.TODO(), clientOptions) // mongo.NewClient(clientOptions)
-	if err != nil {
-		log.Fatal(err)
-	}
+	ApiService = NewUserService(repository.NewMongoUsersRepository())
+	// clientOptions := options.Client().ApplyURI(connectionString)
+	// client, err := mongo.Connect(context.TODO(), clientOptions) // mongo.NewClient(clientOptions)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
-	// check the connection
-	err = client.Ping(context.TODO(), nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-	
-	database := client.Database(dbName)
-	collection = database.Collection(collectionName)
+	// // check the connection
+	// err = client.Ping(context.TODO(), nil)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	// database := client.Database(dbName)
+	// collection = database.Collection(collectionName)
 }
 
 func enableLogging(flag bool) {
@@ -59,7 +65,7 @@ func enableLogging(flag bool) {
 }
 
 func AuthorizeUser(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request){
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("This is the auth middleware")
 
 		logrus.WithFields(logrus.Fields{
@@ -80,7 +86,7 @@ func AuthorizeUser(next http.Handler) http.Handler {
 				next.ServeHTTP(w, r)
 			}
 		} else {
-			fmt.Println(w, "Not Authorized");
+			fmt.Println(w, "Not Authorized")
 		}
 	})
 }
@@ -94,8 +100,22 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	var user models.User
 	_ = json.NewDecoder(r.Body).Decode(&user)
-	insertOneUser(user)
-	json.NewEncoder(w).Encode(user)
+	err := ApiService.CreateUser(&user)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"user-object": user,
+			"error":       err.Error(),
+			"time":        time.Now().String(),
+		}).Warn("CrateUser")
+		json.NewEncoder(w).Encode(err.Error())
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"user-object": user,
+			"msg":         "Successfully created the user",
+			"time":        time.Now().String(),
+		}).Info("CrateUser")
+		json.NewEncoder(w).Encode("Success")
+	}
 }
 
 func insertOneUser(user models.User) {
@@ -127,7 +147,7 @@ func findUserById(user string) bson.M {
 	var result bson.M
 	id, _ := primitive.ObjectIDFromHex(user)
 	collection.FindOne(context.Background(), bson.M{"_id": id}).Decode(&result)
-	return result;
+	return result
 }
 
 // get all users from the DB and return it
@@ -215,7 +235,7 @@ func updateOneUser(r *http.Request) {
 	if longitude != "" {
 		change["longitude"] = longitude
 	}
-	update := bson.M{"$set" : change}
+	update := bson.M{"$set": change}
 	_, err := collection.UpdateOne(context.Background(), filter, update)
 	if err != nil {
 		fmt.Println("UpdateOneUser() result ERROR: ", err)
@@ -255,7 +275,7 @@ func AddFollowerToUser(w http.ResponseWriter, r *http.Request) {
 		}
 		if !followerExists {
 			user["followers"] = append(existingFollowers, followerId)
-			fmt.Println("Follower doesn't exist, hence proceeding to add")	
+			fmt.Println("Follower doesn't exist, hence proceeding to add")
 		} else {
 			fmt.Println("Not adding because the follower already exists")
 		}
@@ -271,7 +291,7 @@ func AddFollowerToUser(w http.ResponseWriter, r *http.Request) {
 			fmt.Println("This is the err: ", err)
 		} else {
 			fmt.Println("Added follower")
-		}	
+		}
 	}
 }
 
@@ -402,7 +422,7 @@ https://www.nhc.noaa.gov/gccalc.shtml
 func getDist(lat1 float64, long1 float64, lat2 float64, long2 float64) float64 {
 	var distX = (lat1 - lat2) * 111000
 	var distY = (long1 - long2) * 111000
-	var hyptotenuse = math.Sqrt((distX * distX + distY * distY))
-	var distMetres = hyptotenuse * 111000;
-	return distMetres;
+	var hyptotenuse = math.Sqrt((distX*distX + distY*distY))
+	var distMetres = hyptotenuse * 111000
+	return distMetres
 }
