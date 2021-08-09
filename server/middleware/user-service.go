@@ -19,6 +19,7 @@ type UserService interface {
 	DeleteUserById(user string) error
 	UpdateUserById(userId string, r *http.Request) error
 	AddFollowerToUser(userId string, followerId string) error
+	AddFollowingToUser(userId string, followingId string) error
 }
 
 type service struct{}
@@ -149,6 +150,34 @@ func (*service) AddFollowerToUser(userId string, followerId string) error {
 			}
 		}
 		user["followers"] = append(existingFollowers, followerId)
+	}
+	update := bson.M{"$set": user}
+	errUpdate := repo.UpdateUser(userId, update)
+	return errUpdate
+}
+
+func (*service) AddFollowingToUser(userId string, followingId string) error {
+	if userId == followingId {
+		return errors.New("[AddFollowerToUser] User can't follow himself")
+	}
+	user, err := repo.GetUser(userId)
+	if err != nil {
+		return err
+	}
+	_, err2 := repo.GetUser(followingId)
+	if err2 != nil {
+		return err2
+	}
+	if user["following"] == nil {
+		user["following"] = [1]string{followingId}
+	} else {
+		var existingFollowing bson.A = user["following"].(bson.A)
+		for _, currFollower := range existingFollowing {
+			if currFollower == followingId {
+				return errors.New("[AddFollowingToUser] The user is already following that user")
+			}
+		}
+		user["following"] = append(existingFollowing, followingId)
 	}
 	update := bson.M{"$set": user}
 	errUpdate := repo.UpdateUser(userId, update)
