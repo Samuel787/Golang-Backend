@@ -1,10 +1,6 @@
 package router
 
 import (
-	"fmt"
-
-	"net/http"
-
 	"../middleware"
 	"github.com/gorilla/mux"
 )
@@ -25,14 +21,4 @@ func Router() *mux.Router {
 	router.HandleFunc("/api/nearByFollowing", middleware.GetNearByFollowing).Methods("PUT", "OPTIONS")
 
 	return router
-}
-
-func loggingMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Do stuff here
-		// log.Println(r.RequestURI)
-		fmt.Println("This is the auth middleware")
-		// Call the next handler, which can be another middleware in the chain, or the final handler.
-		next.ServeHTTP(w, r)
-	})
 }
