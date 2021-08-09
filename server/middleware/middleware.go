@@ -48,12 +48,6 @@ func enableLogging(flag bool) {
 
 func AuthorizeUser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("This is the auth middleware")
-
-		logrus.WithFields(logrus.Fields{
-			"Test": "hello there brown cow",
-		}).Info("Auth details")
-
 		if r.Header["Token"] != nil {
 			token, err := jwt.Parse(r.Header["Token"][0], func(token *jwt.Token) (interface{}, error) {
 				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -62,13 +56,27 @@ func AuthorizeUser(next http.Handler) http.Handler {
 				return mySigningKey, nil
 			})
 			if err != nil {
-				fmt.Println(w, err.Error())
+				logrus.WithFields(logrus.Fields{
+					"auth-msg": "Error during token parsing",
+					"token":    token,
+					"error":    err.Error(),
+					"time":     time.Now().String(),
+				}).Warn("AuthorizeUser")
 			}
 			if token.Valid {
+				logrus.WithFields(logrus.Fields{
+					"auth-msg": "Good token. Allowing access to API",
+					"token":    token,
+					"time":     time.Now().String(),
+				}).Info("AuthorizeUser")
 				next.ServeHTTP(w, r)
 			}
 		} else {
-			fmt.Println(w, "Not Authorized")
+			logrus.WithFields(logrus.Fields{
+				"auth-msg": "An attempt to use API without auth token",
+				"time":     time.Now().String(),
+			}).Warn("AuthorizeUser")
+			json.NewEncoder(w).Encode("Not Authorized")
 		}
 	})
 }
