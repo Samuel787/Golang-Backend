@@ -62,6 +62,7 @@ func AuthorizeUser(next http.Handler) http.Handler {
 					"error":    err.Error(),
 					"time":     time.Now().String(),
 				}).Warn("AuthorizeUser")
+				json.NewEncoder(w).Encode("Not Authorized")
 			}
 			if token.Valid {
 				logrus.WithFields(logrus.Fields{
